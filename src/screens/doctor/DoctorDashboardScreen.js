@@ -1,78 +1,93 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Image } from 'react-native';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../../firebase/config';
 
 export default function DoctorDashboardScreen({ navigation }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+    fetchUserData();
   }, []);
+
+  const fetchUserData = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      const docSnap = await getDoc(doc(db, 'users', user.uid));
+      if (docSnap.exists()) setUserData(docSnap.data());
+    }
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>مرحباً دكتور! 👋</Text>
-        <Text style={styles.subtitle}>لوحة تحكم الدكتور</Text>
+        <Text style={styles.headerTitle}>👨‍🏫 لوحة الدكتور</Text>
+        <Text style={styles.headerSub}>مرحباً، {userData?.name || 'دكتور'}</Text>
       </View>
 
-      <View style={styles.statsRow}>
-        {[
-          { num: '120', label: 'طالب', icon: '◆' },
-          { num: '3', label: 'مواد', icon: '◫' },
-          { num: '90%', label: 'نسبة النجاح', icon: '◬' },
-        ].map((stat, i) => (
-          <Animated.View key={i} style={[styles.statCard, { opacity: fadeAnim }]}>
-            <Text style={styles.statIcon}>{stat.icon}</Text>
-            <Text style={styles.statNum}>{stat.num}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
-          </Animated.View>
-        ))}
-      </View>
+      {/* كارد الملف الشخصي */}
+      <TouchableOpacity style={styles.profileCard} onPress={() => navigation.navigate('DoctorProfile')} activeOpacity={0.8}>
+        <View style={styles.profileAvatar}>
+          {userData?.photo ? (
+            <Image source={{ uri: `data:image/jpeg;base64,${userData.photo}` }} style={styles.profileImg} />
+          ) : (
+            <Text style={styles.profileAvatarText}>👨‍🏫</Text>
+          )}
+        </View>
+        <View style={styles.profileInfo}>
+          <Text style={styles.profileName}>{userData?.name || 'دكتور'}</Text>
+          <Text style={styles.profileEmail}>{userData?.email || ''}</Text>
+          <Text style={styles.profileSubject}>{userData?.subject || userData?.specialization || 'المادة'}</Text>
+        </View>
+        <Text style={styles.profileArrow}>→</Text>
+      </TouchableOpacity>
 
-      <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
-        <Text style={styles.sectionTitle}>الإجراءات</Text>
-        
-        <TouchableOpacity style={styles.qrButton} onPress={() => navigation.navigate('DoctorQRCode')} activeOpacity={0.8}>
-          <View style={styles.qrIconBox}>
-            <Text style={styles.qrIcon}>📱</Text>
-          </View>
-          <View style={styles.qrContent}>
-            <Text style={styles.qrTitle}>عرض QR Code للحضور</Text>
-            <Text style={styles.qrSub}>اسمح للطلاب بمسح الكود لتسجيل حضورهم</Text>
-          </View>
-          <Text style={styles.qrArrow}>→</Text>
-        </TouchableOpacity>
-
-        <View style={styles.menuGrid}>
-          <TouchableOpacity style={styles.menuCard} onPress={() => navigation.navigate('ViewAttendance')} activeOpacity={0.8}>
-            <View style={styles.menuIconBox}>
-              <Text style={styles.menuIcon}>📋</Text>
-            </View>
-            <Text style={styles.menuLabel}>سجل الحضور</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuCard} activeOpacity={0.8}>
-            <View style={styles.menuIconBox}>
-              <Text style={styles.menuIcon}>👨‍🎓</Text>
-            </View>
-            <Text style={styles.menuLabel}>إدارة الطلاب</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuCard} activeOpacity={0.8}>
-            <View style={styles.menuIconBox}>
-              <Text style={styles.menuIcon}>📊</Text>
-            </View>
-            <Text style={styles.menuLabel}>رفع درجات</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuCard} activeOpacity={0.8}>
-            <View style={styles.menuIconBox}>
-              <Text style={styles.menuIcon}>◎</Text>
-            </View>
-            <Text style={styles.menuLabel}>الإشعارات</Text>
-          </TouchableOpacity>
+      {/* إحصائيات */}
+      <Animated.View style={[styles.statsRow, { opacity: fadeAnim }]}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNum}>3</Text>
+          <Text style={styles.statLabel}>📚 مواد</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statNum}>120</Text>
+          <Text style={styles.statLabel}>👨‍🎓 طالب</Text>
         </View>
       </Animated.View>
 
+      {/* الإجراءات */}
+      <Animated.View style={[styles.menuSection, { opacity: fadeAnim }]}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('DoctorQRCode')} activeOpacity={0.8}>
+          <View style={[styles.menuIcon, { backgroundColor: '#EEF2FF' }]}><Text style={styles.menuEmoji}>📱</Text></View>
+          <View style={styles.menuContent}>
+            <Text style={styles.menuTitle}>QR Code الحضور</Text>
+            <Text style={styles.menuSub}>عرض كود لتسجيل حضور الطلاب</Text>
+          </View>
+          <Text style={styles.menuArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ViewAttendance')} activeOpacity={0.8}>
+          <View style={[styles.menuIcon, { backgroundColor: '#DCFCE7' }]}><Text style={styles.menuEmoji}>📋</Text></View>
+          <View style={styles.menuContent}>
+            <Text style={styles.menuTitle}>سجل الحضور</Text>
+            <Text style={styles.menuSub}>عرض سجلات حضور الطلاب</Text>
+          </View>
+          <Text style={styles.menuArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Notifications')} activeOpacity={0.8}>
+          <View style={[styles.menuIcon, { backgroundColor: '#FCE7F3' }]}><Text style={styles.menuEmoji}>🔔</Text></View>
+          <View style={styles.menuContent}>
+            <Text style={styles.menuTitle}>الإشعارات</Text>
+            <Text style={styles.menuSub}>متابعة الإشعارات الواردة</Text>
+          </View>
+          <Text style={styles.menuArrow}>→</Text>
+        </TouchableOpacity>
+      </Animated.View>
+
       <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.logoutText}>⇥ تسجيل الخروج</Text>
+        <Text style={styles.logoutText}>🚪 تسجيل الخروج</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -80,28 +95,34 @@ export default function DoctorDashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F0F4FF' },
-  header: { backgroundColor: '#1E40AF', paddingHorizontal: 20, paddingTop: 50, paddingBottom: 24, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-  greeting: { fontSize: 24, fontWeight: '800', color: '#FFF', textAlign: 'right' },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.7)', textAlign: 'right', marginTop: 2 },
-  statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, marginTop: -16, marginBottom: 20 },
-  statCard: { flex: 1, backgroundColor: '#FFF', borderRadius: 16, padding: 14, alignItems: 'center' },
-  statIcon: { fontSize: 18, color: '#1E40AF', marginBottom: 4 },
-  statNum: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
-  statLabel: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  section: { padding: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B', textAlign: 'right', marginBottom: 14 },
-  qrButton: { backgroundColor: '#1E40AF', borderRadius: 20, padding: 22, flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  qrIconBox: { width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  qrIcon: { fontSize: 28 },
-  qrContent: { flex: 1 },
-  qrTitle: { fontSize: 17, fontWeight: '800', color: '#FFF', textAlign: 'right' },
-  qrSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)', textAlign: 'right', marginTop: 4 },
-  qrArrow: { fontSize: 24, color: '#FFF', marginLeft: 8 },
-  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  menuCard: { width: '47%', backgroundColor: '#FFF', borderRadius: 16, padding: 20, alignItems: 'center' },
-  menuIconBox: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(30,64,175,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  menuIcon: { fontSize: 24 },
-  menuLabel: { fontSize: 12, fontWeight: '700', color: '#1E293B' },
-  logoutBtn: { marginHorizontal: 20, marginBottom: 32, marginTop: 8, backgroundColor: '#FEF2F2', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#FECACA' },
+  header: { backgroundColor: '#1E40AF', padding: 24, paddingTop: 50, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, marginBottom: 8 },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#FFF', textAlign: 'right' },
+  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'right', marginTop: 4 },
+
+  profileCard: { backgroundColor: '#1E40AF', marginHorizontal: 16, borderRadius: 22, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: -20, shadowColor: '#1E40AF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 8 },
+  profileAvatar: { width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 14, overflow: 'hidden' },
+  profileImg: { width: '100%', height: '100%' },
+  profileAvatarText: { fontSize: 28 },
+  profileInfo: { flex: 1 },
+  profileName: { fontSize: 18, fontWeight: '800', color: '#FFF', textAlign: 'right' },
+  profileEmail: { fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'right', marginTop: 2 },
+  profileSubject: { fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'right', marginTop: 2 },
+  profileArrow: { fontSize: 22, color: '#FFF' },
+
+  statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 20 },
+  statCard: { flex: 1, backgroundColor: '#FFF', borderRadius: 16, padding: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  statNum: { fontSize: 26, fontWeight: '800', color: '#1E40AF' },
+  statLabel: { fontSize: 12, color: '#64748B', marginTop: 4 },
+
+  menuSection: { paddingHorizontal: 16, marginBottom: 20 },
+  menuItem: { backgroundColor: '#FFF', borderRadius: 18, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
+  menuIcon: { width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  menuEmoji: { fontSize: 22 },
+  menuContent: { flex: 1 },
+  menuTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B', textAlign: 'right' },
+  menuSub: { fontSize: 11, color: '#64748B', textAlign: 'right', marginTop: 2 },
+  menuArrow: { fontSize: 18, color: '#CBD5E1' },
+
+  logoutBtn: { marginHorizontal: 16, marginBottom: 30, backgroundColor: '#FEF2F2', borderRadius: 18, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#FECACA' },
   logoutText: { fontSize: 15, fontWeight: '700', color: '#EF4444' },
 });

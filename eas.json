@@ -1,11 +1,9 @@
 {
-  "cli": {
-    "version": ">= 19.0.7"
-  },
   "build": {
     "preview": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "developmentClient": false
       }
     }
   }

@@ -1,22 +1,68 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, Modal, Pressable, Image } from 'react-native';
+﻿import React, { useEffect, useRef, useState } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, Animated,
+  Dimensions, Modal, Pressable, Image, StatusBar, ScrollView
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase/config';
 
 const { width, height } = Dimensions.get('window');
 
 export default function StudentDashboardScreen({ navigation }) {
+  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(50)).current;
   const flipAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  
+  // State
   const [menuVisible, setMenuVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(300)).current;
+  const slideAnim = useRef(new Animated.Value(350)).current;
   const [userData, setUserData] = useState(null);
   const [cardFlipped, setCardFlipped] = useState(false);
+  const [currentTime, setCurrentTime] = useState('');
 
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    // Entrance animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      Animated.spring(slideUp, { toValue: 0, friction: 7, tension: 40, useNativeDriver: true }),
+    ]).start();
+
+    // Pulse animation for card
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.02, duration: 2000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 2000, useNativeDriver: true })
+      ])
+    ).start();
+
+    // Shimmer animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, { toValue: 1, duration: 3000, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 3000, useNativeDriver: true })
+      ])
+    ).start();
+
     fetchUserData();
+    updateTime();
+    
+    const timeInterval = setInterval(updateTime, 60000);
+    return () => clearInterval(timeInterval);
   }, []);
+
+  const updateTime = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const period = hours >= 12 ? 'مساءً' : 'صباحاً';
+    const displayHours = hours % 12 || 12;
+    setCurrentTime(`${displayHours}:${minutes} ${period}`);
+  };
 
   const fetchUserData = async () => {
     try {
@@ -25,153 +71,264 @@ export default function StudentDashboardScreen({ navigation }) {
         const docSnap = await getDoc(doc(db, 'users', user.uid));
         if (docSnap.exists()) setUserData(docSnap.data());
       }
-    } catch (error) {
-      console.log('Error:', error);
-    }
+    } catch (error) { console.log('Error:', error); }
   };
 
   const flipCard = () => {
-    const toValue = cardFlipped ? 0 : 1;
-    Animated.spring(flipAnim, { toValue, friction: 8, tension: 10, useNativeDriver: true }).start();
+    Animated.spring(flipAnim, { 
+      toValue: cardFlipped ? 0 : 1, 
+      friction: 6, 
+      tension: 8, 
+      useNativeDriver: true 
+    }).start();
     setCardFlipped(!cardFlipped);
   };
 
   const frontInterpolate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
   const backInterpolate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
 
-  const openMenu = () => {
-    setMenuVisible(true);
-    Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true }).start();
+  // صورة المستخدم
+  const getUserImage = () => {
+    if (!userData) return null;
+    const img = userData.profileImage || userData.photo || userData.image;
+    if (!img || img.length < 50) return null;
+    
+    if (img.startsWith('data:image')) return { uri: img };
+    if (img.startsWith('http')) return { uri: img };
+    return { uri: `data:image/jpeg;base64,${img}` };
   };
 
+  const userImage = getUserImage();
+
+  const openMenu = () => {
+    setMenuVisible(true);
+    Animated.spring(slideAnim, { toValue: 0, friction: 6, tension: 40, useNativeDriver: true }).start();
+  };
+  
   const closeMenu = () => {
-    Animated.spring(slideAnim, { toValue: 300, friction: 8, tension: 40, useNativeDriver: true }).start(() => setMenuVisible(false));
+    Animated.spring(slideAnim, { toValue: 350, friction: 6, tension: 40, useNativeDriver: true })
+      .start(() => setMenuVisible(false));
   };
 
   const menuItems = [
-    { icon: '▦', label: 'الجدول الدراسي', screen: 'Schedule' },
-    { icon: '◫', label: 'المواد الدراسية', screen: 'Courses' },
-    { icon: '◬', label: 'النتائج', screen: 'Grades' },
-    { icon: '▣', label: 'المكتبة', screen: 'Library' },
-    { icon: '◈', label: 'الحضور', screen: 'QR' },
-    { icon: '◎', label: 'الإشعارات', screen: 'Notifications' },
-    { icon: '◉', label: 'الدعم الفني', screen: 'Chat' },
-    { icon: '◇', label: 'المصروفات', screen: 'Payment' },
-    { icon: '📋', label: 'سجل حضوري', screen: 'MyAttendance' },
+    { icon: 'calendar-outline', label: 'الجدول الدراسي', screen: 'Schedule', color: '#3B82F6' },
+    { icon: 'book-outline', label: 'المواد الدراسية', screen: 'Courses', color: '#8B5CF6' },
+    { icon: 'stats-chart-outline', label: 'النتائج', screen: 'Grades', color: '#10B981' },
+    { icon: 'library-outline', label: 'المكتبة', screen: 'Library', color: '#F59E0B' },
+    { icon: 'qr-code-outline', label: 'تسجيل الحضور', screen: 'QR', color: '#3B82F6' },
+    { icon: 'notifications-outline', label: 'الإشعارات', screen: 'Notifications', color: '#EF4444' },
+    { icon: 'chatbubbles-outline', label: 'الدعم الفني', screen: 'Chat', color: '#8B5CF6' },
+    { icon: 'wallet-outline', label: 'الدفع الالكتروني', screen: 'Payment', color: '#10B981' },
+    { icon: 'warning-outline', label: 'الإنذارات', screen: 'Warnings', color: '#F59E0B' },
+    { icon: 'information-circle-outline', label: 'عن التطبيق', screen: 'About', color: '#64748B' },
+    { icon: 'create-outline', label: 'تعديل حسابي', screen: 'EditProfile', color: '#EC4899' },
+    { icon: 'document-text-outline', label: 'سجل حضوري', screen: 'MyAttendance', color: '#14B8A6' },
+    { icon: 'hardware-chip-outline', label: 'المساعد الذكي', screen: 'AIChat', color: '#6366F1' },
   ];
+
+  if (userData?.role === 'leader') {
+    menuItems.splice(4, 0, { icon: 'qr-code', label: 'توليد QR حضور', screen: 'LeaderQR', color: '#F97316' });
+  }
 
   return (
     <View style={styles.container}>
-      {/* الهيدر */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity style={styles.menuBtn} onPress={openMenu}>
-            <Text style={styles.menuIcon}>☰</Text>
-          </TouchableOpacity>
-          <Image source={require('../../../assets/logo.png')} style={styles.headerLogo} resizeMode="contain" />
-          <TouchableOpacity style={styles.avatarBtn} onPress={() => navigation.navigate('Profile')}>
-            <Text style={styles.avatarIcon}>○</Text>
-          </TouchableOpacity>
+      <StatusBar barStyle="light-content" backgroundColor="#1E40AF" />
+      
+      {/* Background */}
+      <LinearGradient colors={['#1E40AF', '#3B82F6', '#6366F1']} style={styles.bg}>
+        <View style={styles.bgCircle1} />
+        <View style={styles.bgCircle2} />
+      </LinearGradient>
+
+      {/* Header */}
+      <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideUp }] }]}>
+        <TouchableOpacity style={styles.menuBtn} onPress={openMenu} activeOpacity={0.7}>
+          <Ionicons name="menu" size={24} color="#FFF" />
+        </TouchableOpacity>
+        
+        <View style={styles.headerCenter}>
+          <Text style={styles.greeting}>
+            {currentTime.includes('صباحاً') ? '☀️ صباح الخير' : '🌙 مساء الخير'}
+          </Text>
+          <Text style={styles.greetingName}>{userData?.name || 'طالب'} 👋</Text>
+          <Text style={styles.timeText}>{currentTime}</Text>
         </View>
-        <Text style={styles.greeting}>مرحباً، {userData?.name || 'طالب'} 👋</Text>
-        <Text style={styles.headerSub}>جامعة إمبريال</Text>
-      </View>
+        
+        <TouchableOpacity style={styles.avatarBtn} onPress={() => navigation.navigate('Profile')} activeOpacity={0.7}>
+          {userImage ? (
+            <Image source={userImage} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarPlaceholderText}>
+                {userData?.name?.charAt(0) || 'ط'}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
 
-      {/* محتوى الصفحة - البطاقة في النصف */}
-      <View style={styles.body}>
-        <Animated.View style={[styles.cardWrapper, { opacity: fadeAnim }]}>
-          <TouchableOpacity activeOpacity={1} onPress={flipCard}>
-            
-            {/* وجه أمامي */}
-            <Animated.View style={[styles.idCard, { transform: [{ rotateY: frontInterpolate }] }]}>
-              <View style={styles.cardTop}>
+      {/* Quick Info Cards */}
+      <Animated.View style={[styles.quickInfo, { opacity: fadeAnim, transform: [{ translateY: slideUp }] }]}>
+        <View style={styles.quickCard}>
+          <MaterialCommunityIcons name="book-education" size={22} color="#3B82F6" />
+          <Text style={styles.quickLabel}>الدفعة</Text>
+          <Text style={styles.quickValue}>{userData?.batch || '-'}</Text>
+        </View>
+        <View style={styles.quickCard}>
+          <MaterialCommunityIcons name="school" size={22} color="#8B5CF6" />
+          <Text style={styles.quickLabel}>التخصص</Text>
+          <Text style={styles.quickValue}>{userData?.specialization || '-'}</Text>
+        </View>
+        <View style={styles.quickCard}>
+          <MaterialCommunityIcons name="fingerprint" size={22} color="#10B981" />
+          <Text style={styles.quickLabel}>التسلسلي</Text>
+          <Text style={styles.quickValueSmall}>{userData?.serialNumber || '-'}</Text>
+        </View>
+      </Animated.View>
+
+      {/* Digital ID Card */}
+      <Animated.View style={[styles.cardContainer, { opacity: fadeAnim, transform: [{ translateY: slideUp }] }]}>
+        <TouchableOpacity activeOpacity={0.95} onPress={flipCard}>
+          <Animated.View style={[styles.card, styles.cardFront, { 
+            transform: [{ rotateY: frontInterpolate }, { perspective: 1000 }, { scale: pulseAnim }] 
+          }]}>
+            {/* Card Header */}
+            <View style={styles.cardHeader}>
+              <View style={styles.cardLogoBox}>
                 <Image source={require('../../../assets/logo.png')} style={styles.cardLogo} resizeMode="contain" />
-                <Text style={styles.cardUni}>IMPERIAL UNIVERSITY</Text>
-                <Text style={styles.cardUniAr}>جامعة إمبريال</Text>
               </View>
+              <View>
+                <Text style={styles.cardUni}>IMPERIAL</Text>
+                <Text style={styles.cardUniSub}>UNIVERSITY COLLAGE </Text>
+              </View>
+            </View>
 
-              <View style={styles.cardPhotoBox}>
-                {userData?.photo ? (
-                  <Image source={{ uri: `data:image/jpeg;base64,${userData.photo}` }} style={styles.cardPhoto} />
+            {/* Card Photo */}
+            <View style={styles.cardPhotoSection}>
+              <View style={styles.cardPhotoRing}>
+                {userImage ? (
+                  <Image source={userImage} style={styles.cardPhoto} />
                 ) : (
-                  <View style={styles.cardPhotoPlaceholder}>
-                    <Text style={styles.cardPhotoIcon}>○</Text>
-                  </View>
+                  <FontAwesome5 name="user-graduate" size={36} color="#1E40AF" />
                 )}
               </View>
+            </View>
 
-              <Text style={styles.cardName}>{userData?.name || 'الاسم الكامل'}</Text>
-              <Text style={styles.cardId}>رقم الهوية: {userData?.nationalId || '00000000'}</Text>
-              
-              <View style={styles.cardDivider} />
-
-              <View style={styles.cardInfoGrid}>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>التخصص</Text>
-                  <Text style={styles.infoValue}>{userData?.specialization || '-'}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>الدفعة</Text>
-                  <Text style={styles.infoValue}>{userData?.batch || '-'}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>الجنسية</Text>
-                  <Text style={styles.infoValue}>{userData?.nationality || '-'}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>الهاتف</Text>
-                  <Text style={styles.infoValue}>{userData?.phone || '-'}</Text>
-                </View>
+            {/* Card Info */}
+            <Text style={styles.cardName}>{userData?.name || 'الاسم'}</Text>
+            
+            <View style={styles.cardChips}>
+              <View style={[styles.cardChip, { backgroundColor: '#EEF2FF' }]}>
+                <Text style={[styles.cardChipText, { color: '#1E40AF' }]}>دفعة {userData?.batch || '-'}</Text>
               </View>
-
-              <View style={styles.cardBottom}>
-                <Text style={styles.cardValid}>سارية حتى 2027</Text>
+              <View style={[styles.cardChip, { backgroundColor: '#F0FDF4' }]}>
+                <Text style={[styles.cardChipText, { color: '#10B981' }]}>{userData?.specialization || '-'}</Text>
               </View>
-            </Animated.View>
+            </View>
 
-            {/* وجه خلفي */}
-            <Animated.View style={[styles.idCard, styles.idCardBack, { transform: [{ rotateY: backInterpolate }] }]}>
-              <View style={styles.magneticStripe} />
-              <View style={styles.backContent}>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardSerial}>SN: {userData?.serialNumber || userData?.nationalId || '-'}</Text>
+              <Text style={styles.tapHint}>👆 اضغط للخلف</Text>
+            </View>
+          </Animated.View>
+
+          {/* Card Back */}
+          <Animated.View style={[styles.card, styles.cardBack, { 
+            transform: [{ rotateY: backInterpolate }, { perspective: 1000 }],
+            position: 'absolute', top: 0
+          }]}>
+            <View style={styles.magStripe} />
+            
+            <View style={styles.backContent}>
+              <View style={styles.backHeader}>
                 <Image source={require('../../../assets/logo.png')} style={styles.backLogo} resizeMode="contain" />
-                <Text style={styles.backTitle}>IMPERIAL UNIVERSITY</Text>
-                <View style={styles.barcodeBox}>
-                  <Text style={styles.barcodeText}>||| || |||| | ||| || | ||||</Text>
-                  <Text style={styles.barcodeId}>{userData?.nationalId || '00000000'}</Text>
-                </View>
-                <Text style={styles.backNote}>هذه البطاقة ملك لجامعة إمبريال. في حالة العثور عليها يرجى إعادتها إلى أقرب حرم جامعي.</Text>
-                <Text style={styles.backContact}>imperial.edu</Text>
+                <Text style={styles.backUni}>imperial.university.college College</Text>
               </View>
-            </Animated.View>
 
-          </TouchableOpacity>
+              <View style={styles.signatureLine}>
+                <Text style={styles.signatureLabel}>توقيع الطالب</Text>
+                <View style={styles.signatureBox} />
+              </View>
 
-          <TouchableOpacity style={styles.flipHint} onPress={flipCard}>
-            <Text style={styles.flipText}>🔄 اضغط لقلب البطاقة</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
+              <View style={styles.barcodeSection}>
+                {[...Array(40)].map((_, i) => (
+                  <View key={i} style={[styles.barLine, { height: 15 + Math.random() * 30 }]} />
+                ))}
+              </View>
 
-      {/* القائمة الجانبية */}
+              <View style={styles.backInfo}>
+                <Text style={styles.backInfoText}>هذه البطاقة ملك لكلية إمبريال الجامعية</Text>
+              </View>
+
+              <Text style={styles.backId}>SN: {userData?.serialNumber || userData?.nationalId || '-'}</Text>
+              
+              <Text style={styles.tapHint}>👆 اضغط للرجوع</Text>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Quick Actions */}
+      <Animated.View style={[styles.quickActions, { opacity: fadeAnim }]}>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('QR')}>
+          <LinearGradient colors={['#3B82F6', '#2563EB']} style={styles.actionGradient}>
+            <Ionicons name="qr-code" size={22} color="#FFF" />
+            <Text style={styles.actionText}>تسجيل حضور</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('Grades')}>
+          <LinearGradient colors={['#10B981', '#059669']} style={styles.actionGradient}>
+            <MaterialCommunityIcons name="chart-bar" size={22} color="#FFF" />
+            <Text style={styles.actionText}>النتائج</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('Schedule')}>
+          <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.actionGradient}>
+            <Ionicons name="calendar" size={22} color="#FFF" />
+            <Text style={styles.actionText}>الجدول</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Side Menu Modal */}
       <Modal visible={menuVisible} transparent animationType="none">
-        <Pressable style={styles.overlay} onPress={closeMenu}><View /></Pressable>
+        <Pressable style={styles.overlay} onPress={closeMenu}>
+          <View />
+        </Pressable>
         <Animated.View style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}>
-          <View style={styles.drawerHeader}>
+          <LinearGradient colors={['#1E40AF', '#3B82F6']} style={styles.drawerHeader}>
             <Image source={require('../../../assets/logo.png')} style={styles.drawerLogo} resizeMode="contain" />
-            <Text style={styles.drawerTitle}>القائمة</Text>
-            <TouchableOpacity onPress={closeMenu} style={styles.closeBtn}><Text style={styles.closeIcon}>✕</Text></TouchableOpacity>
-          </View>
-          <ScrollView style={styles.drawerContent}>
+            <View>
+              <Text style={styles.drawerTitle}>القائمة</Text>
+              <Text style={styles.drawerSub}>{userData?.name}</Text>
+            </View>
+            <TouchableOpacity onPress={closeMenu} style={styles.drawerClose}>
+              <Ionicons name="close" size={22} color="#FFF" />
+            </TouchableOpacity>
+          </LinearGradient>
+          
+          <ScrollView style={styles.drawerContent} showsVerticalScrollIndicator={false}>
             {menuItems.map((item, i) => (
-              <TouchableOpacity key={i} style={styles.drawerItem} onPress={() => { closeMenu(); navigation.navigate(item.screen); }}>
-                <Text style={styles.drawerItemIcon}>{item.icon}</Text>
-                <Text style={styles.drawerItemText}>{item.label}</Text>
-                <Text style={styles.drawerItemArrow}>→</Text>
+              <TouchableOpacity 
+                key={i} 
+                style={styles.drawerItem} 
+                onPress={() => { closeMenu(); navigation.navigate(item.screen); }} 
+                activeOpacity={0.7}
+              >
+                <View style={[styles.drawerIconBox, { backgroundColor: item.color + '15' }]}>
+                  <Ionicons name={item.icon} size={20} color={item.color} />
+                </View>
+                <Text style={styles.drawerLabel}>{item.label}</Text>
+                <Ionicons name="chevron-back" size={16} color="#CBD5E1" />
               </TouchableOpacity>
             ))}
           </ScrollView>
+          
           <TouchableOpacity style={styles.drawerLogout} onPress={() => { closeMenu(); navigation.navigate('Login'); }}>
-            <Text style={styles.drawerLogoutText}>⇥ تسجيل الخروج</Text>
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <Text style={styles.drawerLogoutText}>تسجيل الخروج</Text>
           </TouchableOpacity>
         </Animated.View>
       </Modal>
@@ -181,140 +338,106 @@ export default function StudentDashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F0F4FF' },
-  
-  // الهيدر
-  header: { 
-    backgroundColor: '#1E40AF', 
-    paddingHorizontal: 20, 
-    paddingTop: 50, 
-    paddingBottom: 16,
-    borderBottomLeftRadius: 24, 
-    borderBottomRightRadius: 24,
-  },
-  headerTop: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 12,
-  },
-  menuBtn: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 12, 
-    backgroundColor: 'rgba(255,255,255,0.15)', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.25)' 
-  },
-  menuIcon: { fontSize: 18, color: '#FFF' },
-  headerLogo: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#FFF', padding: 3 },
-  avatarBtn: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 12, 
-    backgroundColor: 'rgba(255,255,255,0.15)', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.25)' 
-  },
-  avatarIcon: { fontSize: 16, color: '#FFF' },
-  greeting: { fontSize: 16, fontWeight: '700', color: '#FFF', textAlign: 'center' },
-  headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginTop: 2 },
+  bg: { position: 'absolute', top: 0, left: 0, right: 0, height: 300, borderBottomLeftRadius: 40, borderBottomRightRadius: 40 },
+  bgCircle1: { position: 'absolute', top: -50, right: -50, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)' },
+  bgCircle2: { position: 'absolute', bottom: 20, left: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.04)' },
 
-  // محتوى الصفحة
-  body: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 80,
-  },
-  cardWrapper: {
-    width: '100%',
-    alignItems: 'center',
-  },
+  // Header
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 55, paddingBottom: 15 },
+  menuBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  headerCenter: { alignItems: 'center', flex: 1 },
+  greeting: { fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: '500' },
+  greetingName: { fontSize: 20, fontWeight: '800', color: '#FFF', marginTop: 2 },
+  timeText: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 4, fontWeight: '500' },
+  avatarBtn: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)' },
+  avatar: { width: '100%', height: '100%' },
+  avatarPlaceholder: { width: '100%', height: '100%', backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center' },
+  avatarPlaceholderText: { fontSize: 18, fontWeight: '700', color: '#1E40AF' },
 
-  // البطاقة العمودية
-  idCard: {
-    width: width * 0.85,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    paddingVertical: 22,
-    paddingHorizontal: 18,
-    alignItems: 'center',
+  // Quick Info
+  quickInfo: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginTop: -10, marginBottom: 16 },
+  quickCard: { flex: 1, backgroundColor: '#FFF', borderRadius: 16, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
+  quickLabel: { fontSize: 10, color: '#94A3B8', marginTop: 6 },
+  quickValue: { fontSize: 15, fontWeight: '800', color: '#1E293B', marginTop: 2 },
+  quickValueSmall: { fontSize: 12, fontWeight: '800', color: '#1E293B', marginTop: 2 },
+
+  // Card
+  cardContainer: { paddingHorizontal: 22, marginBottom: 16 },
+  card: { width: '100%', borderRadius: 24, padding: 24, backfaceVisibility: 'hidden', alignItems: 'center' },
+  cardFront: { 
+    backgroundColor: '#FFFFFF', 
+    borderWidth: 2, 
+    borderColor: '#E2E8F0',
     shadowColor: '#1E40AF',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 20,
-    elevation: 10,
-    borderWidth: 1.5,
-    borderColor: 'rgba(30,64,175,0.1)',
-    backfaceVisibility: 'hidden',
+    elevation: 8
   },
-  idCardBack: {
-    backgroundColor: '#1E293B',
-    borderColor: 'rgba(255,255,255,0.1)',
-    position: 'absolute',
-    top: 0,
-  },
-  cardTop: { alignItems: 'center', marginBottom: 14 },
-  cardLogo: { width: 44, height: 44, borderRadius: 10, marginBottom: 4 },
-  cardUni: { fontSize: 11, fontWeight: '800', color: '#1E40AF', letterSpacing: 1.5 },
-  cardUniAr: { fontSize: 10, color: '#64748B', marginTop: 1 },
-  cardPhotoBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2.5,
-    borderColor: '#1E40AF',
-    overflow: 'hidden',
-    marginBottom: 10,
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  cardLogoBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  cardLogo: { width: 32, height: 32 },
+  cardUni: { fontSize: 14, fontWeight: '800', color: '#1E40AF', letterSpacing: 3 },
+  cardUniSub: { fontSize: 9, fontWeight: '600', color: '#94A3B8', letterSpacing: 2 },
+
+  cardPhotoSection: { marginBottom: 14 },
+  cardPhotoRing: { 
+    width: 80, height: 80, borderRadius: 22, 
+    borderWidth: 3, borderColor: '#1E40AF', 
+    justifyContent: 'center', alignItems: 'center', 
+    overflow: 'hidden', backgroundColor: '#F8FAFC' 
   },
   cardPhoto: { width: '100%', height: '100%' },
-  cardPhotoPlaceholder: { justifyContent: 'center', alignItems: 'center' },
-  cardPhotoIcon: { fontSize: 30, color: '#1E40AF' },
-  cardName: { fontSize: 16, fontWeight: '800', color: '#1E293B', textAlign: 'center', marginBottom: 3 },
-  cardId: { fontSize: 12, color: '#64748B', textAlign: 'center', marginBottom: 10 },
-  cardDivider: { width: '70%', height: 1, backgroundColor: '#E2E8F0', marginBottom: 12 },
-  cardInfoGrid: { width: '100%', flexDirection: 'row', flexWrap: 'wrap' },
-  infoItem: { width: '50%', paddingVertical: 6, paddingHorizontal: 8 },
-  infoLabel: { fontSize: 10, color: '#94A3B8', textAlign: 'right' },
-  infoValue: { fontSize: 12, fontWeight: '700', color: '#1E293B', textAlign: 'right', marginTop: 1 },
-  cardBottom: { marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E8F0', width: '100%', alignItems: 'center' },
-  cardValid: { fontSize: 9, color: '#94A3B8', fontWeight: '600', letterSpacing: 1 },
+  
+  cardName: { fontSize: 18, fontWeight: '800', color: '#0F172A', textAlign: 'center', letterSpacing: 1 },
+  
+  cardChips: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  cardChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10 },
+  cardChipText: { fontSize: 11, fontWeight: '700' },
+  
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  cardSerial: { fontSize: 10, color: '#94A3B8', fontWeight: '500', letterSpacing: 1 },
+  tapHint: { fontSize: 9, color: '#CBD5E1', fontWeight: '500' },
 
-  // ظهر البطاقة
-  magneticStripe: { width: '100%', height: 30, backgroundColor: '#2D3748', marginBottom: 16, borderRadius: 4 },
-  backContent: { alignItems: 'center', paddingHorizontal: 12 },
-  backLogo: { width: 32, height: 32, borderRadius: 6, marginBottom: 6 },
-  backTitle: { fontSize: 12, fontWeight: '800', color: '#FFFFFF', letterSpacing: 2, marginBottom: 10 },
-  barcodeBox: { backgroundColor: '#FFFFFF', borderRadius: 8, paddingHorizontal: 20, paddingVertical: 8, marginBottom: 10, alignItems: 'center' },
-  barcodeText: { fontSize: 10, color: '#000', letterSpacing: 2, fontFamily: 'monospace' },
-  barcodeId: { fontSize: 9, color: '#64748B', marginTop: 3 },
-  backNote: { fontSize: 9, color: '#94A3B8', textAlign: 'center', lineHeight: 14, marginBottom: 8 },
-  backContact: { fontSize: 10, color: '#64748B', fontWeight: '600' },
+  // Card Back
+  cardBack: { backgroundColor: '#1E293B', borderColor: '#334155', alignItems: 'stretch' },
+  magStripe: { height: 40, backgroundColor: '#0F172A', borderRadius: 8, marginBottom: 16 },
+  backContent: { alignItems: 'center', paddingHorizontal: 10 },
+  backHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
+  backLogo: { width: 28, height: 28, borderRadius: 8 },
+  backUni: { color: '#94A3B8', fontSize: 11, fontWeight: '700', letterSpacing: 2 },
+  
+  signatureLine: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20, width: '100%' },
+  signatureLabel: { color: '#64748B', fontSize: 10 },
+  signatureBox: { flex: 1, height: 1, backgroundColor: '#334155' },
+  
+  barcodeSection: { flexDirection: 'row', alignItems: 'flex-end', gap: 1.5, height: 50, marginBottom: 16 },
+  barLine: { width: 2.5, backgroundColor: '#E2E8F0', borderRadius: 1 },
+  
+  backInfo: { marginBottom: 12 },
+  backInfoText: { color: '#64748B', fontSize: 9, textAlign: 'center', marginBottom: 2 },
+  backId: { color: '#94A3B8', fontSize: 11, letterSpacing: 2, fontWeight: '600' },
 
-  flipHint: { marginTop: 12 },
-  flipText: { fontSize: 11, color: '#94A3B8', fontWeight: '600' },
+  // Quick Actions
+  quickActions: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 16 },
+  actionBtn: { flex: 1, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+  actionGradient: { padding: 16, alignItems: 'center', gap: 6 },
+  actionText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
 
-  // القائمة الجانبية
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  drawer: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 280, backgroundColor: '#FFFFFF', borderTopLeftRadius: 30, borderBottomLeftRadius: 30, paddingTop: 50, shadowColor: '#000', shadowOffset: { width: -4, height: 0 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 10 },
-  drawerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  drawerLogo: { width: 28, height: 28, borderRadius: 6 },
-  drawerTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B' },
-  closeBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
-  closeIcon: { fontSize: 13, color: '#64748B', fontWeight: '700' },
-  drawerContent: { flex: 1, paddingHorizontal: 12, paddingTop: 8 },
-  drawerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 10, marginBottom: 1 },
-  drawerItemIcon: { fontSize: 15, color: '#1E40AF', marginRight: 10 },
-  drawerItemText: { fontSize: 13, fontWeight: '600', color: '#1E293B', flex: 1 },
-  drawerItemArrow: { fontSize: 13, color: '#CBD5E1' },
-  drawerLogout: { margin: 16, backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FECACA' },
-  drawerLogoutText: { fontSize: 13, fontWeight: '700', color: '#EF4444' },
+  // Drawer
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  drawer: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 300, backgroundColor: '#FFF' },
+  drawerHeader: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 55, gap: 12 },
+  drawerLogo: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF', padding: 4 },
+  drawerTitle: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+  drawerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 11 },
+  drawerClose: { marginLeft: 'auto', width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  
+  drawerContent: { flex: 1, paddingHorizontal: 14, paddingTop: 10 },
+  drawerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, borderRadius: 14, marginBottom: 4 },
+  drawerIconBox: { width: 42, height: 42, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  drawerLabel: { fontSize: 14, fontWeight: '600', color: '#1E293B', flex: 1 },
+  
+  drawerLogout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: 18, backgroundColor: '#FEF2F2', borderRadius: 16, padding: 16, gap: 8, borderWidth: 1, borderColor: '#FECACA' },
+  drawerLogoutText: { fontSize: 15, fontWeight: '700', color: '#EF4444' }
 });

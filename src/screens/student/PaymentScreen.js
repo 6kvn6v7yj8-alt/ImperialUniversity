@@ -1,85 +1,117 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
-export default function PaymentScreen() {
+export default function PaymentScreen({ navigation }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  const payments = [
-    { id: 1, name: 'رسوم الفصل الدراسي الأول', amount: '5,000', status: 'paid', date: '2026-09-15' },
-    { id: 2, name: 'رسوم المختبرات', amount: '1,200', status: 'paid', date: '2026-09-20' },
-    { id: 3, name: 'رسوم الكتب', amount: '800', status: 'pending', date: '2026-10-01' },
-    { id: 4, name: 'رسوم الفصل الدراسي الثاني', amount: '5,000', status: 'pending', date: '2027-01-15' },
-  ];
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 30, useNativeDriver: true })
+    ]).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1500, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true })
+      ])
+    ).start();
   }, []);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>💰 المصروفات</Text>
-      </View>
+    <View style={styles.container}>
+      {/* Header */}
+      <LinearGradient colors={['#1E40AF', '#3B82F6']} style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={22} color="#FFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>💰 نظام الدفع الالكتروني</Text>
+        <Text style={styles.headerSub}>نظام المدفوعات</Text>
+      </LinearGradient>
 
-      <View style={styles.summaryRow}>
-        <View style={[styles.summaryCard, { backgroundColor: '#D1FAE5' }]}>
-          <Text style={styles.summaryLabel}>✅ تم الدفع</Text>
-          <Text style={[styles.summaryAmount, { color: '#059669' }]}>6,200 ج.م</Text>
-        </View>
-        <View style={[styles.summaryCard, { backgroundColor: '#FEE2E2' }]}>
-          <Text style={styles.summaryLabel}>⏳ متبقي</Text>
-          <Text style={[styles.summaryAmount, { color: '#DC2626' }]}>5,800 ج.م</Text>
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>سجل المدفوعات</Text>
-
-      {payments.map((item, i) => (
-        <Animated.View key={item.id} style={[styles.card, { opacity: fadeAnim }]}>
-          <View style={styles.cardLeft}>
-            <View style={[styles.statusDot, { backgroundColor: item.status === 'paid' ? '#10B981' : '#F59E0B' }]} />
-          </View>
-          <View style={styles.cardContent}>
-            <Text style={styles.paymentName}>{item.name}</Text>
-            <Text style={styles.paymentDate}>{item.date}</Text>
-          </View>
-          <View style={styles.cardRight}>
-            <Text style={styles.paymentAmount}>{item.amount} ج.م</Text>
-            <View style={[styles.statusBadge, { backgroundColor: item.status === 'paid' ? '#D1FAE5' : '#FFF7ED' }]}>
-              <Text style={[styles.statusText, { color: item.status === 'paid' ? '#059669' : '#D97706' }]}>
-                {item.status === 'paid' ? 'تم الدفع ✓' : 'معلق ⏳'}
-              </Text>
+      {/* Content */}
+      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+        <Animated.View style={[styles.iconContainer, { transform: [{ scale: pulseAnim }] }]}>
+          <View style={styles.iconRing}>
+            <View style={styles.iconInner}>
+              <MaterialCommunityIcons name="bank" size={64} color="#FFF" />
             </View>
           </View>
         </Animated.View>
-      ))}
 
-      <TouchableOpacity style={styles.payBtn} activeOpacity={0.9}>
-        <Text style={styles.payBtnText}>💳 ادفع الآن</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <Text style={styles.title}>🚧 تحت التطوير</Text>
+        <Text style={styles.subtitle}>
+          نظام الدفع اللكتروني قيد التطوير حالياً.{'\n'}
+          سيتم إطلاق هذه الميزة قريباً.
+        </Text>
+
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <Ionicons name="information-circle" size={18} color="#1E40AF" />
+            <Text style={styles.infoText}>
+              يمكنك متابعة المصروفات من خلال شؤون الطلاب أو التواصل مع الإدارة المالية.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.featuresPreview}>
+          <Text style={styles.featuresTitle}>المميزات القادمة:</Text>
+          <View style={styles.featureItem}>
+            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+            <Text style={styles.featureText}>عرض المدفوعات السابقة</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+            <Text style={styles.featureText}>الدفع الإلكتروني</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+            <Text style={styles.featureText}>إشعارات مواعيد الدفع</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+            <Text style={styles.featureText}>كشف حساب تفصيلي</Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Footer */}
+      <Animated.Text style={[styles.footer, { opacity: fadeAnim }]}>
+        شكراً لصبركم - فريق Imperial University
+      </Animated.Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F5F9' },
-  header: { backgroundColor: '#4F46E5', paddingHorizontal: 24, paddingTop: 55, paddingBottom: 24, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, marginBottom: 16 },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#FFF', textAlign: 'right' },
-  summaryRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, marginBottom: 20 },
-  summaryCard: { flex: 1, borderRadius: 18, padding: 18, alignItems: 'center' },
-  summaryLabel: { fontSize: 13, fontWeight: '600', color: '#1E293B' },
-  summaryAmount: { fontSize: 22, fontWeight: '800', marginTop: 6 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#1E293B', textAlign: 'right', paddingHorizontal: 16, marginBottom: 12 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 18, marginHorizontal: 16, marginBottom: 10, flexDirection: 'row', padding: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
-  cardLeft: { marginRight: 12 },
-  statusDot: { width: 12, height: 12, borderRadius: 6 },
-  cardContent: { flex: 1 },
-  paymentName: { fontSize: 15, fontWeight: '600', color: '#1E293B', textAlign: 'right' },
-  paymentDate: { fontSize: 12, color: '#94A3B8', textAlign: 'right', marginTop: 2 },
-  cardRight: { alignItems: 'flex-end' },
-  paymentAmount: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginTop: 4 },
-  statusText: { fontSize: 11, fontWeight: '700' },
-  payBtn: { backgroundColor: '#4F46E5', marginHorizontal: 16, marginVertical: 24, paddingVertical: 16, borderRadius: 16, alignItems: 'center', shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
-  payBtnText: { color: '#FFF', fontSize: 17, fontWeight: '700' },
+  container: { flex: 1, backgroundColor: '#F0F4FF' },
+
+  header: { padding: 20, paddingTop: 50, paddingBottom: 22, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  headerTitle: { color: '#FFF', fontSize: 22, fontWeight: '800', textAlign: 'right' },
+  headerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'right', marginTop: 4 },
+
+  content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
+
+  iconContainer: { marginBottom: 28 },
+  iconRing: { width: 130, height: 130, borderRadius: 65, backgroundColor: 'rgba(30,64,175,0.08)', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(30,64,175,0.15)' },
+  iconInner: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#1E40AF', justifyContent: 'center', alignItems: 'center' },
+
+  title: { fontSize: 26, fontWeight: '900', color: '#1E293B', marginBottom: 12, textAlign: 'center' },
+  subtitle: { fontSize: 15, color: '#64748B', textAlign: 'center', lineHeight: 24, marginBottom: 24 },
+
+  infoCard: { backgroundColor: '#EEF2FF', borderRadius: 16, padding: 16, width: '100%', marginBottom: 24, borderWidth: 1, borderColor: '#DBEAFE' },
+  infoRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  infoText: { fontSize: 13, color: '#1E40AF', flex: 1, textAlign: 'right', lineHeight: 22, fontWeight: '500' },
+
+  featuresPreview: { width: '100%', backgroundColor: '#FFF', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#E2E8F0' },
+  featuresTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B', textAlign: 'right', marginBottom: 14 },
+  featureItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8, paddingVertical: 6 },
+  featureText: { fontSize: 13, color: '#64748B' },
+
+  footer: { textAlign: 'center', paddingBottom: 30, color: '#94A3B8', fontSize: 12 },
 });

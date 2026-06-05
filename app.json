@@ -3,10 +3,11 @@
     "name": "ImperialUniversity",
     "slug": "ImperialUniversity",
     "version": "1.0.0",
+    "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true ,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.imperial.university"
+      "bundleIdentifier": "com.imperial.university.college"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1E40AF"
       },
-      "package": "com.imperial.university",
+      "package": "com.imperial.university.college",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.INTERNET"
@@ -31,18 +32,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow Imperial University to access your camera."
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Allow Imperial University to access your photos."
-        }
-      ]
+      "expo-camera",
+      "expo-image-picker",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-local-authentication",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-asset"
     ],
     "extra": {
       "eas": {

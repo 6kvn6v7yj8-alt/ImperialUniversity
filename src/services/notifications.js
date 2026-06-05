@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, Alert } from 'react-native';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 // إعدادات الإشعارات
 Notifications.setNotificationHandler({
@@ -21,7 +23,6 @@ export async function registerForPushNotifications() {
   }
 
   try {
-    // صلاحيات الإشعارات
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     
@@ -35,7 +36,6 @@ export async function registerForPushNotifications() {
       return null;
     }
 
-    // إعداد قناة الإشعارات للأندرويد
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'الإشعارات العامة',
@@ -45,24 +45,15 @@ export async function registerForPushNotifications() {
         sound: 'default',
       });
 
-      await Notifications.setNotificationChannelAsync('grades', {
-        name: 'النتائج',
+      await Notifications.setNotificationChannelAsync('activation', {
+        name: 'تفعيل الحساب',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#10B981',
         sound: 'default',
       });
-
-      await Notifications.setNotificationChannelAsync('attendance', {
-        name: 'الحضور',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#F59E0B',
-        sound: 'default',
-      });
     }
 
-    // الحصول على توكن الإشعارات
     const token = await Notifications.getExpoPushTokenAsync({
       projectId: '867091807986',
     });
@@ -74,7 +65,7 @@ export async function registerForPushNotifications() {
   }
 }
 
-// إرسال إشعار فوري
+// إرسال إشعار فوري (محلي)
 export async function sendLocalNotification(title, body, data = {}) {
   try {
     await Notifications.scheduleNotificationAsync({
@@ -87,10 +78,78 @@ export async function sendLocalNotification(title, body, data = {}) {
         color: '#1E40AF',
         badge: 1,
       },
-      trigger: null, // فوري
+      trigger: null,
     });
   } catch (error) {
     console.log('خطأ في الإشعار:', error);
+  }
+}
+
+// ✅ إرسال إشعار عن طريق Expo Push API (للأجهزة التانية - عن بعد)
+export async function sendPushNotificationToUser(expoPushToken, title, body, data = {}) {
+  if (!expoPushToken) {
+    console.log('No push token available');
+    return null;
+  }
+
+  try {
+    const message = {
+      to: expoPushToken,
+      sound: 'default',
+      title,
+      body,
+      data,
+      priority: 'high',
+      channelId: 'default',
+    };
+
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+
+    const result = await response.json();
+    console.log('Push notification sent:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+    return null;
+  }
+}
+
+// ✅ إرسال إشعار تفعيل الحساب للطالب
+export async function sendActivationNotification(studentId) {
+  try {
+    const studentDoc = await getDoc(doc(db, 'users', studentId));
+    
+    if (studentDoc.exists()) {
+      const student = studentDoc.data();
+      const token = student.expoPushToken;
+      
+      if (token) {
+        // إرسال push notification عن بعد
+        await sendPushNotificationToUser(
+          token,
+          '🎉 تم تفعيل حسابك!',
+          `مرحباً ${student.name || 'طالب'}، تم تفعيل حسابك في Imperial University. يمكنك الآن تسجيل الدخول.`,
+          { type: 'activation', studentId }
+        );
+        console.log('Activation notification sent to:', student.name);
+      } else {
+        console.log('No push token for student:', student.name);
+        // إرسال إشعار محلي كبديل
+        await sendLocalNotification(
+          '🎉 تم تفعيل حسابك!',
+          `مرحباً ${student.name || 'طالب'}، تم تفعيل حسابك. يمكنك الآن تسجيل الدخول.`
+        );
+      }
+    }
+  } catch (error) {
+    console.error('Error sending activation notification:', error);
   }
 }
 
@@ -106,10 +165,7 @@ export async function sendScheduledNotification(title, body, seconds, data = {})
         vibrate: [0, 250, 250, 250],
         color: '#1E40AF',
       },
-      trigger: {
-        seconds: seconds,
-        channelId: 'default',
-      },
+      trigger: { seconds, channelId: 'default' },
     });
   } catch (error) {
     console.log('خطأ في جدولة الإشعار:', error);
@@ -120,8 +176,6 @@ export async function sendScheduledNotification(title, body, seconds, data = {})
 export async function sendScheduledAtNotification(title, body, date, data = {}) {
   try {
     const trigger = new Date(date);
-    trigger.setHours(trigger.getHours() - 1); // قبل الموعد بساعة
-    
     if (trigger.getTime() > Date.now()) {
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -132,10 +186,7 @@ export async function sendScheduledAtNotification(title, body, date, data = {}) 
           vibrate: [0, 250, 250, 250],
           color: '#1E40AF',
         },
-        trigger: {
-          date: trigger,
-          channelId: 'default',
-        },
+        trigger: { date: trigger, channelId: 'default' },
       });
     }
   } catch (error) {
@@ -174,7 +225,7 @@ export async function sendLectureReminder(subject, time, room) {
 export async function sendPaymentReminder(amount, dueDate) {
   await sendLocalNotification(
     '💰 تذكير بدفع',
-    `عليك دفعة بقيمة ${amount} ج.م قبل ${dueDate}`,
+    `عليك دفعة بقيمة ${amount} ريال قبل ${dueDate}`,
     { type: 'payment', amount, dueDate }
   );
 }
@@ -182,7 +233,7 @@ export async function sendPaymentReminder(amount, dueDate) {
 // إشعار ترحيب
 export async function sendWelcomeNotification(name) {
   await sendLocalNotification(
-    '🎓 مرحباً بك في جامعة إمبريال',
+    '🎓 مرحباً بك في Imperial University',
     `أهلاً ${name}! نتمنى لك فصلاً دراسياً موفقاً.`,
     { type: 'welcome', name }
   );
